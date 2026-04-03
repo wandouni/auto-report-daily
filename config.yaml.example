@@ -1,0 +1,31 @@
+# AI Daily Summary 配置文件
+# 使用前请填入你的 API key
+
+# LLM 提供商选择：deepseek 或 kimi
+llm_provider: deepseek
+
+llm:
+    deepseek:
+        api_key: 'sk-xxx'
+        base_url: 'https://api.deepseek.com'
+        model: 'deepseek-chat'
+
+    kimi:
+        api_key: 'sk-xxx'
+        base_url: 'https://api.moonshot.cn/v1'
+        model: 'moonshot-v1-32k'
+
+# Obsidian Vault 根目录
+vault: '/path/to/your/obsidian'
+
+# 输出目录（默认：vault/AI Daily）
+output_dir: '/path/to/your/obsidian/AI Daily'
+
+# 输入内容最大字符数（超出后截断）
+max_input_chars: 60000
+
+# 微信公众号发布（需要已安装 baoyu-post-to-wechat skill）
+wechat:
+  enabled: true
+  theme: default  # 主题：default / grace / simple / modern
+  cover: '/path/to/auto-report-daily/assets/default-cover.png'
