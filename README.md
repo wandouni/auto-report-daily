@@ -152,6 +152,8 @@ WECHAT_APP_SECRET=your_app_secret
 bash /Users/shenni/repository/auto-report-daily/setup.sh
 ```
 
+setup.sh 会自动探测 `python3` 和 `npx` 的绝对路径，并在 crontab 头部写入正确的 PATH，无需手动调整。
+
 **关闭**（彻底删除）：
 ```bash
 crontab -l | grep -v ai_daily_summary | crontab -
@@ -166,6 +168,21 @@ crontab -e   # 在任务行前加 # 注释禁用，删除 # 重新启用
 ```bash
 crontab -l
 ```
+
+### 模拟 cron 环境测试
+
+如需在不等待定时触发的情况下验证脚本是否能在 cron 环境正常运行（setup.sh 已自动写入正确 PATH，此命令用于手动排查）：
+
+```bash
+PYTHON3="$(which python3)"
+NPX_DIR="$(dirname "$(which npx)")"
+env -i HOME="$HOME" LOGNAME="$LOGNAME" USER="$USER" \
+  PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$NPX_DIR" \
+  /bin/sh -c "cd \"/Users/shenni/repository/auto-report-daily\" && \
+  $PYTHON3 \"/Users/shenni/repository/auto-report-daily/ai_daily_summary.py\" \$(date +%Y%m%d)"
+```
+
+这会用与 cron 完全一致的环境变量运行脚本，是排查定时任务不执行问题的首选方式。
 
 **查看执行日志**：
 ```bash

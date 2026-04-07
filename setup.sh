@@ -19,7 +19,11 @@ mkdir -p "$OUTPUT_DIR"
 # 3. 写入 crontab（去重）
 echo "[3/3] 配置 crontab..."
 
-CRON_JOB="0 18 * * 1-5 cd \"$SCRIPT_DIR\" && python3 \"$SCRIPT_PATH\" >> \"$SCRIPT_DIR/cron.log\" 2>&1"
+# 自动探测绝对路径，避免 cron 环境 PATH 过窄导致找不到命令
+PYTHON3_PATH="$(which python3)"
+NPX_DIR="$(dirname "$(which npx 2>/dev/null)" 2>/dev/null || true)"
+CRON_PATH="PATH=/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin${NPX_DIR:+:$NPX_DIR}"
+CRON_JOB="0 18 * * 1-5 cd \"$SCRIPT_DIR\" && $PYTHON3_PATH \"$SCRIPT_PATH\" >> \"$SCRIPT_DIR/cron.log\" 2>&1"
 
 # 获取当前 crontab（忽略空 crontab 的错误）
 CURRENT_CRON="$(crontab -l 2>/dev/null || true)"
@@ -27,10 +31,16 @@ CURRENT_CRON="$(crontab -l 2>/dev/null || true)"
 if echo "$CURRENT_CRON" | grep -qF "$SCRIPT_PATH"; then
     echo "  crontab 条目已存在，跳过。"
 else
+    # 写入 PATH 行（若不存在）+ job 行
+    NEW_CRON="$CURRENT_CRON"
+    if ! echo "$CURRENT_CRON" | grep -q "^PATH="; then
+        NEW_CRON="$(printf '%s\n%s' "$CRON_PATH" "$CURRENT_CRON")"
+    fi
     (
-        echo "$CURRENT_CRON"
+        echo "$NEW_CRON"
         echo "$CRON_JOB"
     ) | crontab -
+    echo "  crontab PATH：$CRON_PATH"
     echo "  crontab 条目已添加：$CRON_JOB"
 fi
 
