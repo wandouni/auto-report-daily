@@ -67,6 +67,17 @@ python3 ai_daily_summary.py
 python3 ai_daily_summary.py 20260402
 ```
 
+### 跳过生成、直接发布已有文章到微信
+
+文章已写入 Obsidian 后，如需单独重推到微信公众号（无需重跑 LLM）：
+
+```bash
+bash publish_to_wechat.sh                      # 发布今天的文章
+bash publish_to_wechat.sh 20260411             # 发布指定日期的文章
+bash publish_to_wechat.sh 20260411 grace       # 指定主题
+bash publish_to_wechat.sh --themes             # 列出所有可用主题
+```
+
 ## 配置说明（config.yaml）
 
 | 字段 | 说明 |
