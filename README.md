@@ -41,11 +41,11 @@ flowchart TD
 
 ## 数据源
 
-| 数据源 | 路径 | 筛选方式 |
-|--------|------|----------|
-| Day Planner | `{vault}/Day Planners/YYYY-MM-DD.md` | 按日期拼接文件名 |
-| Clippings | `{vault}/Clippings/*.md` | 按文件创建日期（birthtime）筛选 |
-| Claude CLI | `~/.claude/projects/**/*.jsonl` | 文件 mtime 粗过滤 + 消息 timestamp 精确匹配 |
+| 数据源      | 路径                                   | 筛选方式                                    |
+| ----------- | -------------------------------------- | ------------------------------------------- |
+| Day Planner | `{vault}/Day Planners/YYYY-MM-DD.md` | 按日期拼接文件名                            |
+| Clippings   | `{vault}/Clippings/*.md`             | 按文件创建日期（birthtime）筛选             |
+| Claude CLI  | `~/.claude/projects/**/*.jsonl`      | 文件 mtime 粗过滤 + 消息 timestamp 精确匹配 |
 
 ## 快速开始
 
@@ -72,25 +72,46 @@ python3 ai_daily_summary.py 20260402
 文章已写入 Obsidian 后，如需单独重推到微信公众号（无需重跑 LLM）：
 
 ```bash
-bash publish_to_wechat.sh                      # 发布今天的文章
+bash publish_to_wechat.sh                      # 发布今天的文章（主题：modern）
 bash publish_to_wechat.sh 20260411             # 发布指定日期的文章
 bash publish_to_wechat.sh 20260411 grace       # 指定主题
 bash publish_to_wechat.sh --themes             # 列出所有可用主题
 ```
 
+### 发布任意 Markdown 文件到微信
+
+将 Obsidian 中任意 `.md` 文件发布为微信公众号草稿：
+
+```bash
+# 基本用法（标题自动取文件名）
+bash publish_md_to_wechat.sh "/Users/shenni/obsidian/Notes/某篇文章.md"
+bash publish_md_to_wechat.sh "/Users/shenni/obsidian/xcom/Claude Tag.md" modern
+
+# 指定标题
+bash publish_md_to_wechat.sh "/path/to/file.md" "自定义标题"
+
+# 指定标题和主题
+bash publish_md_to_wechat.sh "/path/to/file.md" "自定义标题" grace
+
+# 列出可用主题
+bash publish_md_to_wechat.sh --themes
+```
+
+支持的主题：`default` / `grace` / `simple` / `modern`（默认）。文件如含 YAML frontmatter 会自动剥除。
+
 ## 配置说明（config.yaml）
 
-| 字段 | 说明 |
-|------|------|
-| `llm_provider` | `deepseek` 或 `kimi` |
-| `llm.deepseek.api_key` | DeepSeek API key |
-| `llm.kimi.api_key` | Kimi API key |
-| `vault` | Obsidian Vault 根目录 |
-| `output_dir` | 输出目录，默认 `{vault}/AI Daily` |
-| `max_input_chars` | 输入内容最大字符数，默认 60000 |
-| `wechat.enabled` | 是否启用微信发布 |
-| `wechat.theme` | 文章主题：`default` / `grace` / `simple` / `modern` |
-| `wechat.cover` | 静态封面图路径 |
+| 字段                     | 说明                                                        |
+| ------------------------ | ----------------------------------------------------------- |
+| `llm_provider`         | `deepseek` 或 `kimi`                                    |
+| `llm.deepseek.api_key` | DeepSeek API key                                            |
+| `llm.kimi.api_key`     | Kimi API key                                                |
+| `vault`                | Obsidian Vault 根目录                                       |
+| `output_dir`           | 输出目录，默认`{vault}/AI Daily`                          |
+| `max_input_chars`      | 输入内容最大字符数，默认 60000                              |
+| `wechat.enabled`       | 是否启用微信发布                                            |
+| `wechat.theme`         | 文章主题：`default` / `grace` / `simple` / `modern` |
+| `wechat.cover`         | 静态封面图路径                                              |
 
 ## 执行流程
 
@@ -159,6 +180,7 @@ WECHAT_APP_SECRET=your_app_secret
 ## 定时任务管理
 
 **开启**（重新运行安装脚本）：
+
 ```bash
 bash /Users/shenni/repository/auto-report-daily/setup.sh
 ```
@@ -166,16 +188,19 @@ bash /Users/shenni/repository/auto-report-daily/setup.sh
 setup.sh 会自动探测 `python3` 和 `npx` 的绝对路径，并在 crontab 头部写入正确的 PATH，无需手动调整。
 
 **关闭**（彻底删除）：
+
 ```bash
 crontab -l | grep -v ai_daily_summary | crontab -
 ```
 
 **临时禁用 / 重新启用**：
+
 ```bash
 crontab -e   # 在任务行前加 # 注释禁用，删除 # 重新启用
 ```
 
 **验证当前状态**：
+
 ```bash
 crontab -l
 ```
@@ -196,6 +221,7 @@ env -i HOME="$HOME" LOGNAME="$LOGNAME" USER="$USER" \
 这会用与 cron 完全一致的环境变量运行脚本，是排查定时任务不执行问题的首选方式。
 
 **查看执行日志**：
+
 ```bash
 # 查看实时日志（滚动追踪）
 tail -f /Users/shenni/repository/auto-report-daily/cron.log
@@ -207,15 +233,14 @@ tail -50 /Users/shenni/repository/auto-report-daily/cron.log
 tail -f /Users/shenni/repository/auto-report-daily/ai_daily.log
 ```
 
-| 日志文件 | 说明 |
-|----------|------|
-| `cron.log` | cron 触发时的原始输出（INFO 级别），确认每次是否成功运行 |
+| 日志文件         | 说明                                                             |
+| ---------------- | ---------------------------------------------------------------- |
+| `cron.log`     | cron 触发时的原始输出（INFO 级别），确认每次是否成功运行         |
 | `ai_daily.log` | 程序内部详细日志，排查数据源读取、LLM 调用、微信发布等各步骤问题 |
 
 ## 注意事项
 
-- cron 需要「完全磁盘访问权限」才能读取 Obsidian 文件：  
-  **系统设置 → 隐私与安全性 → 完全磁盘访问权限 → 添加 `/usr/sbin/cron`**
+- cron 需要「完全磁盘访问权限」才能读取 Obsidian 文件：**系统设置 → 隐私与安全性 → 完全磁盘访问权限 → 添加 `/usr/sbin/cron`**
 - 封面图生成失败不阻断发布流程（无封面继续发布）
 - 微信发布失败不影响 Obsidian 文件写入
 - 同一天重复执行会覆盖输出文件（幂等安全）

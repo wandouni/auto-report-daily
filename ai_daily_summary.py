@@ -445,6 +445,7 @@ def publish_to_wechat(
     target_date: date,
     config: dict,
     logger: logging.Logger,
+    theme_override: Optional[str] = None,
 ):
     wechat_cfg = config.get('wechat', {})
     if not wechat_cfg.get('enabled', False):
@@ -471,7 +472,7 @@ def publish_to_wechat(
 
     try:
         title = f'AI Daily Summary - {target_date.strftime("%Y-%m-%d")}'
-        theme = wechat_cfg.get('theme', 'default')
+        theme = theme_override or wechat_cfg.get('theme', 'modern')
         cover = wechat_cfg.get('cover', '')
 
         cmd = bun.split() + [str(WECHAT_API_SCRIPT), tmp_path,
@@ -508,12 +509,25 @@ def main():
 
     logger = setup_logging(log_path)
 
-    # 目标日期
-    if len(sys.argv) >= 2:
+    # 目标日期 & 可选参数
+    args = sys.argv[1:]
+    theme_arg: Optional[str] = None
+
+    # 提取 --theme <value>
+    if '--theme' in args:
+        idx = args.index('--theme')
+        if idx + 1 < len(args):
+            theme_arg = args[idx + 1]
+            args = args[:idx] + args[idx + 2:]
+        else:
+            logger.error('--theme 参数缺少值')
+            sys.exit(1)
+
+    if args:
         try:
-            target_date = datetime.strptime(sys.argv[1], '%Y%m%d').date()
+            target_date = datetime.strptime(args[0], '%Y%m%d').date()
         except ValueError:
-            logger.error(f'日期格式错误，应为 YYYYMMDD，实际为：{sys.argv[1]}')
+            logger.error(f'日期格式错误，应为 YYYYMMDD，实际为：{args[0]}')
             sys.exit(1)
     else:
         target_date = date.today()
@@ -549,7 +563,7 @@ def main():
     out_path = write_output(output_dir, target_date, summary, dp_len, cl_len, cc_len, logger)
 
     # 发布到微信公众号
-    publish_to_wechat(out_path, target_date, config, logger)
+    publish_to_wechat(out_path, target_date, config, logger, theme_override=theme_arg)
 
     logger.info(f'======== 完成，输出：{out_path} ========')
 

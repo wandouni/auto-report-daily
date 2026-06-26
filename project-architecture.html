@@ -1,0 +1,983 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="AI Daily Summary 项目原理、工具交互与能力说明">
+  <title>AI Daily Summary · 系统原理与工具交互</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #f4f0e7;
+      --paper-deep: #e9e2d4;
+      --ink: #202722;
+      --muted: #657067;
+      --line: #c9c2b4;
+      --accent: #c8512d;
+      --accent-soft: #f3d9c9;
+      --green: #315c4a;
+      --green-soft: #d9e5dc;
+      --blue: #345e73;
+      --blue-soft: #dae7ec;
+      --gold: #80641d;
+      --gold-soft: #eee4bd;
+      --danger: #8f3b35;
+      --danger-soft: #efd8d4;
+      --code: #29312c;
+      --shadow: 0 18px 55px rgb(45 40 31 / 10%);
+      --content: 1180px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html {
+      scroll-behavior: smooth;
+      scroll-padding-top: 24px;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        linear-gradient(rgb(54 60 52 / 3%) 1px, transparent 1px),
+        var(--paper);
+      background-size: 100% 28px;
+      font-family: "Songti SC", "Noto Serif CJK SC", Georgia, serif;
+      line-height: 1.75;
+    }
+
+    a { color: inherit; }
+
+    code, pre, .eyebrow, .nav-link, .tag, .step-no, .tool-index {
+      font-family: "SFMono-Regular", "Cascadia Code", "Liberation Mono", monospace;
+    }
+
+    .shell {
+      width: min(calc(100% - 40px), var(--content));
+      margin: 0 auto;
+    }
+
+    .hero {
+      min-height: 88vh;
+      display: grid;
+      align-items: center;
+      padding: clamp(64px, 10vw, 132px) 0;
+      border-bottom: 1px solid var(--line);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::after {
+      content: "18:00";
+      position: absolute;
+      right: -0.03em;
+      bottom: -0.25em;
+      color: rgb(49 92 74 / 6%);
+      font: 800 clamp(150px, 27vw, 390px)/1 Georgia, serif;
+      letter-spacing: -0.1em;
+      pointer-events: none;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.65fr);
+      gap: clamp(40px, 8vw, 110px);
+      align-items: end;
+      position: relative;
+      z-index: 1;
+    }
+
+    .eyebrow {
+      margin: 0 0 20px;
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    h1, h2, h3, p { margin-top: 0; }
+
+    h1 {
+      max-width: 820px;
+      margin-bottom: 28px;
+      font-size: clamp(44px, 7.8vw, 104px);
+      font-weight: 700;
+      line-height: 0.98;
+      letter-spacing: -0.055em;
+    }
+
+    h1 span {
+      display: block;
+      color: var(--accent);
+      font-style: italic;
+      font-weight: 500;
+    }
+
+    .lede {
+      max-width: 700px;
+      margin-bottom: 0;
+      color: #485149;
+      font-size: clamp(18px, 2vw, 24px);
+      line-height: 1.65;
+    }
+
+    .hero-note {
+      padding: 24px 0 8px 26px;
+      border-left: 3px solid var(--accent);
+      font-size: 15px;
+    }
+
+    .hero-note strong {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 20px;
+    }
+
+    .hero-note p { margin: 0; color: var(--muted); }
+
+    .sticky-nav {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      border-bottom: 1px solid var(--line);
+      background: rgb(244 240 231 / 92%);
+      backdrop-filter: blur(12px);
+    }
+
+    .nav-inner {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .nav-inner::-webkit-scrollbar { display: none; }
+
+    .nav-link {
+      flex: 0 0 auto;
+      padding: 16px 14px 13px;
+      border-bottom: 3px solid transparent;
+      color: var(--muted);
+      font-size: 12px;
+      text-decoration: none;
+      letter-spacing: 0.04em;
+      transition: color 180ms ease, border-color 180ms ease;
+    }
+
+    .nav-link:hover,
+    .nav-link.active {
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+
+    main section {
+      padding: clamp(76px, 10vw, 132px) 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .section-head {
+      display: grid;
+      grid-template-columns: 100px minmax(0, 720px);
+      gap: 24px;
+      margin-bottom: clamp(44px, 7vw, 82px);
+    }
+
+    .section-no {
+      color: var(--accent);
+      font: 700 13px/1.5 "SFMono-Regular", monospace;
+      letter-spacing: 0.08em;
+    }
+
+    h2 {
+      margin-bottom: 18px;
+      font-size: clamp(34px, 5vw, 66px);
+      line-height: 1.08;
+      letter-spacing: -0.04em;
+    }
+
+    .section-intro {
+      margin-bottom: 0;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    .flow {
+      position: relative;
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 20px;
+    }
+
+    .flow::before {
+      content: "";
+      position: absolute;
+      top: 42px;
+      left: 9%;
+      right: 9%;
+      height: 2px;
+      background: var(--line);
+    }
+
+    .flow-step {
+      position: relative;
+      min-width: 0;
+    }
+
+    .step-no {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      width: 84px;
+      height: 84px;
+      margin-bottom: 24px;
+      place-items: center;
+      border: 2px solid var(--ink);
+      border-radius: 50%;
+      background: var(--paper);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .flow-step:nth-child(3) .step-no {
+      color: var(--paper);
+      border-color: var(--accent);
+      background: var(--accent);
+    }
+
+    .flow-step h3 {
+      margin-bottom: 10px;
+      font-size: 21px;
+      line-height: 1.3;
+    }
+
+    .flow-step p {
+      margin-bottom: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .source-map {
+      display: grid;
+      grid-template-columns: minmax(0, 0.9fr) 70px minmax(0, 1.2fr) 70px minmax(0, 0.9fr);
+      align-items: stretch;
+      gap: 0;
+    }
+
+    .source-group {
+      display: grid;
+      gap: 12px;
+    }
+
+    .node {
+      padding: 22px;
+      border: 1px solid var(--line);
+      background: rgb(255 253 247 / 52%);
+    }
+
+    .node.primary {
+      display: grid;
+      align-content: center;
+      min-height: 100%;
+      color: #f6f1e8;
+      border-color: var(--code);
+      background: var(--code);
+      box-shadow: var(--shadow);
+    }
+
+    .node.output {
+      display: grid;
+      align-content: center;
+      border-color: #a9b9ac;
+      background: var(--green-soft);
+    }
+
+    .tag {
+      display: inline-block;
+      width: fit-content;
+      margin-bottom: 12px;
+      padding: 3px 8px;
+      color: var(--accent);
+      background: var(--accent-soft);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .node.primary .tag {
+      color: #f7d0bd;
+      background: rgb(200 81 45 / 25%);
+    }
+
+    .node h3 { margin-bottom: 8px; font-size: 19px; }
+    .node p { margin-bottom: 0; color: var(--muted); font-size: 14px; }
+    .node.primary p { color: #bbc6bd; }
+
+    .connector {
+      display: grid;
+      place-items: center;
+      color: var(--accent);
+      font-size: 28px;
+    }
+
+    .tool-list {
+      border-top: 1px solid var(--ink);
+    }
+
+    .tool {
+      display: grid;
+      grid-template-columns: 72px minmax(170px, 0.7fr) minmax(0, 1.3fr);
+      gap: 24px;
+      padding: 30px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .tool-index {
+      padding-top: 4px;
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .tool h3 {
+      margin-bottom: 8px;
+      font-size: 23px;
+      line-height: 1.3;
+    }
+
+    .tool-role {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .tool-detail p:last-child { margin-bottom: 0; }
+
+    .path {
+      display: inline;
+      padding: 2px 6px;
+      color: #f1eee7;
+      background: var(--code);
+      box-decoration-break: clone;
+      -webkit-box-decoration-break: clone;
+      font-size: 0.82em;
+      overflow-wrap: anywhere;
+    }
+
+    .callout-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 22px;
+    }
+
+    .callout {
+      padding: clamp(24px, 4vw, 42px);
+      border-top: 4px solid;
+    }
+
+    .callout h3 {
+      margin-bottom: 16px;
+      font-size: 24px;
+    }
+
+    .callout ul {
+      margin: 0;
+      padding-left: 1.2em;
+    }
+
+    .callout li + li { margin-top: 8px; }
+
+    .callout.stop {
+      border-color: var(--danger);
+      background: var(--danger-soft);
+    }
+
+    .callout.continue {
+      border-color: var(--green);
+      background: var(--green-soft);
+    }
+
+    .config-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 15px;
+    }
+
+    .config-table th,
+    .config-table td {
+      padding: 18px 16px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .config-table th {
+      color: var(--muted);
+      font: 700 11px/1.4 "SFMono-Regular", monospace;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .config-table td:first-child {
+      width: 32%;
+      color: var(--accent);
+      font-family: "SFMono-Regular", monospace;
+      font-size: 13px;
+    }
+
+    .capabilities {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1px;
+      background: var(--line);
+      border: 1px solid var(--line);
+    }
+
+    .capability {
+      min-height: 270px;
+      padding: 30px 26px;
+      background: var(--paper);
+    }
+
+    .capability b {
+      display: block;
+      margin-bottom: 48px;
+      color: var(--accent);
+      font: 800 13px/1 "SFMono-Regular", monospace;
+    }
+
+    .capability h3 {
+      margin-bottom: 14px;
+      font-size: 25px;
+    }
+
+    .capability p {
+      margin-bottom: 0;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .summary-line {
+      margin-top: clamp(50px, 8vw, 96px);
+      padding-top: 32px;
+      border-top: 3px solid var(--ink);
+      font-size: clamp(25px, 4vw, 48px);
+      font-weight: 700;
+      line-height: 1.3;
+      letter-spacing: -0.03em;
+    }
+
+    .summary-line em { color: var(--accent); font-style: normal; }
+
+    .status-note {
+      display: grid;
+      grid-template-columns: 170px minmax(0, 1fr);
+      gap: 28px;
+      margin-top: 46px;
+      padding: 28px;
+      color: #f3eee5;
+      background: var(--code);
+    }
+
+    .status-note strong { color: #f2b291; }
+    .status-note p { margin: 0; color: #c5cec7; }
+
+    footer {
+      padding: 42px 0 62px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .reveal {
+      opacity: 0;
+      transform: translateY(18px);
+      transition: opacity 600ms cubic-bezier(.22, 1, .36, 1),
+                  transform 600ms cubic-bezier(.22, 1, .36, 1);
+    }
+
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    @media (max-width: 900px) {
+      .hero { min-height: auto; }
+      .hero-grid { grid-template-columns: 1fr; }
+      .hero-note { max-width: 540px; }
+      .flow { grid-template-columns: 1fr; gap: 0; }
+      .flow::before {
+        top: 42px;
+        bottom: 42px;
+        left: 41px;
+        width: 2px;
+        height: auto;
+      }
+      .flow-step {
+        display: grid;
+        grid-template-columns: 84px 1fr;
+        column-gap: 24px;
+        padding-bottom: 30px;
+      }
+      .step-no { grid-row: span 2; }
+      .source-map {
+        grid-template-columns: 1fr;
+        gap: 18px;
+      }
+      .connector { transform: rotate(90deg); }
+      .tool { grid-template-columns: 50px 1fr; }
+      .tool-detail { grid-column: 2; }
+      .capabilities { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @media (max-width: 620px) {
+      .shell { width: min(calc(100% - 28px), var(--content)); }
+      .hero { padding: 72px 0 62px; }
+      h1 { font-size: clamp(42px, 15vw, 66px); }
+      .section-head { grid-template-columns: 1fr; gap: 8px; }
+      .tool { grid-template-columns: 1fr; gap: 8px; }
+      .tool-detail { grid-column: auto; }
+      .callout-grid, .capabilities { grid-template-columns: 1fr; }
+      .capability { min-height: auto; }
+      .capability b { margin-bottom: 28px; }
+      .config-table thead { display: none; }
+      .config-table tr {
+        display: block;
+        padding: 16px 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .config-table td {
+        display: block;
+        width: auto !important;
+        padding: 4px 0;
+        border: 0;
+      }
+      .status-note { grid-template-columns: 1fr; gap: 8px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      .reveal {
+        opacity: 1;
+        transform: none;
+        transition: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="shell hero-grid">
+      <div>
+        <p class="eyebrow">System Field Guide / 2026</p>
+        <h1>AI Daily Summary<span>原理与工具交互</span></h1>
+        <p class="lede">一条运行在 macOS 本地的每日知识整理流水线：自动采集工作记录，让大模型完成复盘，沉淀到 Obsidian，再推送至微信公众号草稿箱。</p>
+      </div>
+      <aside class="hero-note">
+        <strong>它不是复杂的 Agent 系统</strong>
+        <p>更准确地说，它是一个以 Python 为编排中心，通过本地文件、模型 API 和命令行工具连接起来的自动化 ETL 流程。</p>
+      </aside>
+    </div>
+  </header>
+
+  <nav class="sticky-nav" aria-label="页面导航">
+    <div class="shell nav-inner">
+      <a class="nav-link" href="#overview">01 / 总体流程</a>
+      <a class="nav-link" href="#interaction">02 / 交互关系</a>
+      <a class="nav-link" href="#tools">03 / 工具职责</a>
+      <a class="nav-link" href="#config">04 / 配置控制</a>
+      <a class="nav-link" href="#failure">05 / 故障边界</a>
+      <a class="nav-link" href="#capability">06 / 核心能力</a>
+    </div>
+  </nav>
+
+  <main>
+    <section id="overview">
+      <div class="shell">
+        <div class="section-head reveal">
+          <span class="section-no">01 / FLOW</span>
+          <div>
+            <h2>从原始记录到可发布文章</h2>
+            <p class="section-intro">每天执行一次，数据按照固定方向流动。Python 主程序控制每一个阶段，其他工具之间基本不直接通信。</p>
+          </div>
+        </div>
+
+        <div class="flow">
+          <article class="flow-step reveal">
+            <span class="step-no">01</span>
+            <h3>定时触发</h3>
+            <p>crontab 在工作日 18:00 启动主程序。</p>
+          </article>
+          <article class="flow-step reveal">
+            <span class="step-no">02</span>
+            <h3>采集数据</h3>
+            <p>读取 Day Planner、Clippings 和 Claude CLI 对话。</p>
+          </article>
+          <article class="flow-step reveal">
+            <span class="step-no">03</span>
+            <h3>模型整理</h3>
+            <p>拼接上下文，由 DeepSeek 或 Kimi 生成结构化复盘。</p>
+          </article>
+          <article class="flow-step reveal">
+            <span class="step-no">04</span>
+            <h3>知识归档</h3>
+            <p>写入带 YAML 元数据的 Obsidian Markdown。</p>
+          </article>
+          <article class="flow-step reveal">
+            <span class="step-no">05</span>
+            <h3>内容分发</h3>
+            <p>转换排版后上传到微信公众号草稿箱。</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="interaction">
+      <div class="shell">
+        <div class="section-head reveal">
+          <span class="section-no">02 / MAP</span>
+          <div>
+            <h2>工具如何连接</h2>
+            <p class="section-intro">主程序是唯一的流程中枢。左侧输入被统一转换成文本，右侧输出则通过文件和子进程继续流转。</p>
+          </div>
+        </div>
+
+        <div class="source-map reveal">
+          <div class="source-group">
+            <article class="node">
+              <span class="tag">Local Markdown</span>
+              <h3>Day Planner</h3>
+              <p>当天工作、日记、待办与临时思考。</p>
+            </article>
+            <article class="node">
+              <span class="tag">Local Markdown</span>
+              <h3>Clippings</h3>
+              <p>当天创建的网页对话和阅读摘录。</p>
+            </article>
+            <article class="node">
+              <span class="tag">Local JSONL</span>
+              <h3>Claude CLI</h3>
+              <p>当天各项目中的用户与助手消息。</p>
+            </article>
+          </div>
+
+          <div class="connector" aria-hidden="true">→</div>
+
+          <article class="node primary">
+            <span class="tag">Orchestrator</span>
+            <h3>ai_daily_summary.py</h3>
+            <p>加载配置、筛选数据、限制长度、调用模型、写文件、启动微信发布，并记录全过程日志。</p>
+          </article>
+
+          <div class="connector" aria-hidden="true">→</div>
+
+          <div class="source-group">
+            <article class="node output">
+              <span class="tag">Knowledge Base</span>
+              <h3>Obsidian</h3>
+              <p>保存每日复盘 Markdown，支持检索与长期沉淀。</p>
+            </article>
+            <article class="node output">
+              <span class="tag">External Service</span>
+              <h3>WeChat Draft</h3>
+              <p>经 bun 和 wechat-api.ts 转换后进入公众号草稿箱。</p>
+            </article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tools">
+      <div class="shell">
+        <div class="section-head reveal">
+          <span class="section-no">03 / TOOLS</span>
+          <div>
+            <h2>每个工具只负责一件明确的事</h2>
+            <p class="section-intro">职责边界越清晰，越容易判断问题发生在哪一层。</p>
+          </div>
+        </div>
+
+        <div class="tool-list">
+          <article class="tool reveal">
+            <span class="tool-index">T-01</span>
+            <div>
+              <h3>macOS crontab</h3>
+              <span class="tool-role">时间调度器</span>
+            </div>
+            <div class="tool-detail">
+              <p>工作日 18:00 启动 Python 脚本，并把终端输出写入 <span class="path">cron.log</span>。它只决定何时执行，不参与内容处理。</p>
+            </div>
+          </article>
+
+          <article class="tool reveal">
+            <span class="tool-index">T-02</span>
+            <div>
+              <h3>Python 主程序</h3>
+              <span class="tool-role">流程编排中心</span>
+            </div>
+            <div class="tool-detail">
+              <p><span class="path">ai_daily_summary.py</span> 连接所有环节：解析日期、加载配置、采集数据、调用模型、写入文件、启动微信脚本和处理异常。</p>
+            </div>
+          </article>
+
+          <article class="tool reveal">
+            <span class="tool-index">T-03</span>
+            <div>
+              <h3>Day Planner</h3>
+              <span class="tool-role">工作与日记来源</span>
+            </div>
+            <div class="tool-detail">
+              <p>按 <span class="path">{vault}/Day Planners/YYYY-MM-DD.md</span> 精确读取当天文件。全文都会交给模型理解，包括任务、散文记录、产品思考和工具体验。</p>
+            </div>
+          </article>
+
+          <article class="tool reveal">
+            <span class="tool-index">T-04</span>
+            <div>
+              <h3>Clippings</h3>
+              <span class="tool-role">阅读与网页摘录来源</span>
+            </div>
+            <div class="tool-detail">
+              <p>遍历 <span class="path">{vault}/Clippings/*.md</span>，使用 macOS 文件创建时间筛选当天内容。多个文件以文件名为标题拼接。</p>
+            </div>
+          </article>
+
+          <article class="tool reveal">
+            <span class="tool-index">T-05</span>
+            <div>
+              <h3>Claude CLI</h3>
+              <span class="tool-role">编码过程来源</span>
+            </div>
+            <div class="tool-detail">
+              <p>从 <span class="path">~/.claude/projects/**/*.jsonl</span> 读取历史。先按文件修改时间粗筛，再按消息 timestamp 精确筛选；每条最多 2000 字符，每个项目最多 50 条。</p>
+            </div>
+          </article>
+
+          <article class="tool reveal">
+            <span class="tool-index">T-06</span>
+            <div>
+              <h3>OpenAI Python SDK</h3>
+              <span class="tool-role">统一模型接口</span>
+            </div>
+            <div class="tool-detail">
+              <p>通过不同的 <span class="path">base_url</span> 连接 DeepSeek 或 Kimi。两者兼容 OpenAI API，因此无需维护两套 SDK 集成。</p>
+            </div>
+          </article>
+
+          <article class="tool reveal">
+            <span class="tool-index">T-07</span>
+            <div>
+              <h3>System Prompt</h3>
+              <span class="tool-role">内容编辑规范</span>
+            </div>
+            <div class="tool-detail">
+              <p>规定“今日概览、工作与行动、阅读与学习、灵感与发现、Claude 对话精华、今日所得”六类内容，也约束语言、列表层级和 Markdown 排版。</p>
+            </div>
+          </article>
+
+          <article class="tool reveal">
+            <span class="tool-index">T-08</span>
+            <div>
+              <h3>Obsidian</h3>
+              <span class="tool-role">知识存储层</span>
+            </div>
+            <div class="tool-detail">
+              <p>结果保存为 <span class="path">AI Daily-YYYYMMDD.md</span>，附带日期、数据源字符数和生成时间。同一天重复执行会覆盖原文件。</p>
+            </div>
+          </article>
+
+          <article class="tool reveal">
+            <span class="tool-index">T-09</span>
+            <div>
+              <h3>baoyu-post-to-wechat</h3>
+              <span class="tool-role">微信格式转换与上传</span>
+            </div>
+            <div class="tool-detail">
+              <p>外部 TypeScript 工具负责将 Markdown 渲染成微信 HTML、处理摘要和封面、获取 access token，最终写入公众号草稿箱。</p>
+            </div>
+          </article>
+
+          <article class="tool reveal">
+            <span class="tool-index">T-10</span>
+            <div>
+              <h3>bun / npx</h3>
+              <span class="tool-role">TypeScript 执行器</span>
+            </div>
+            <div class="tool-detail">
+              <p>Python 无法直接执行 <span class="path">wechat-api.ts</span>，因此优先调用 bun；本机没有 bun 时，退回使用 <span class="path">npx -y bun</span>。</p>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="config">
+      <div class="shell">
+        <div class="section-head reveal">
+          <span class="section-no">04 / CONFIG</span>
+          <div>
+            <h2>配置文件决定运行方式</h2>
+            <p class="section-intro"><span class="path">config.yaml</span> 把容易变化的连接信息和开关从代码中分离出来。</p>
+          </div>
+        </div>
+
+        <table class="config-table reveal">
+          <thead>
+            <tr>
+              <th>配置项</th>
+              <th>控制对象</th>
+              <th>实际作用</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>llm_provider</td>
+              <td>模型选择</td>
+              <td>在 DeepSeek 和 Kimi 之间切换。</td>
+            </tr>
+            <tr>
+              <td>llm.*</td>
+              <td>模型连接</td>
+              <td>配置 API Key、base URL 和模型名称。</td>
+            </tr>
+            <tr>
+              <td>vault / output_dir</td>
+              <td>本地文件</td>
+              <td>指定 Obsidian 数据源根目录与报告输出位置。</td>
+            </tr>
+            <tr>
+              <td>max_input_chars</td>
+              <td>输入规模</td>
+              <td>限制送入模型的总字符数，默认 60000。</td>
+            </tr>
+            <tr>
+              <td>wechat.enabled</td>
+              <td>发布开关</td>
+              <td>决定生成报告后是否继续调用微信公众号流程。</td>
+            </tr>
+            <tr>
+              <td>wechat.theme / cover</td>
+              <td>微信外观</td>
+              <td>设置排版主题和静态封面图片。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="failure">
+      <div class="shell">
+        <div class="section-head reveal">
+          <span class="section-no">05 / FAILURE</span>
+          <div>
+            <h2>故障被分成核心故障和附加故障</h2>
+            <p class="section-intro">是否中断，取决于问题会不会导致报告本身无法生成。</p>
+          </div>
+        </div>
+
+        <div class="callout-grid">
+          <article class="callout stop reveal">
+            <h3>会终止主流程</h3>
+            <ul>
+              <li>config.yaml 不存在</li>
+              <li>模型 API Key 未配置</li>
+              <li>LLM API 调用失败</li>
+              <li>命令行日期格式错误</li>
+            </ul>
+          </article>
+          <article class="callout continue reveal">
+            <h3>记录错误后继续</h3>
+            <ul>
+              <li>某个数据源不存在或 JSONL 损坏</li>
+              <li>没有找到 bun、npx 或微信脚本</li>
+              <li>微信 API 调用失败或超时</li>
+              <li>封面图不存在</li>
+            </ul>
+          </article>
+        </div>
+
+        <div class="status-note reveal">
+          <strong>当前实际状态</strong>
+          <p>最近的 LLM 总结和 Obsidian 写入均正常。微信公众号发布返回 <code>40164 invalid ip not in whitelist</code>，说明问题发生在微信平台 IP 白名单层，不是 Python、Markdown 转换或模型调用故障。</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="capability">
+      <div class="shell">
+        <div class="section-head reveal">
+          <span class="section-no">06 / VALUE</span>
+          <div>
+            <h2>最终形成四种核心能力</h2>
+            <p class="section-intro">项目的价值来自完整闭环，而不是其中某一个单独工具。</p>
+          </div>
+        </div>
+
+        <div class="capabilities reveal">
+          <article class="capability">
+            <b>01</b>
+            <h3>自动采集</h3>
+            <p>汇总日记、阅读摘录和 Claude 编程对话，减少手工复制。</p>
+          </article>
+          <article class="capability">
+            <b>02</b>
+            <h3>智能整理</h3>
+            <p>把零散内容转换为工作总结、学习笔记、灵感和技术复盘。</p>
+          </article>
+          <article class="capability">
+            <b>03</b>
+            <h3>知识沉淀</h3>
+            <p>输出标准 Markdown 与 YAML 元数据，长期保存在 Obsidian。</p>
+          </article>
+          <article class="capability">
+            <b>04</b>
+            <h3>内容分发</h3>
+            <p>将生成结果或任意 Markdown 转换并推入微信公众号草稿箱。</p>
+          </article>
+        </div>
+
+        <p class="summary-line reveal">
+          个人行为数据采集器 <em>+</em> LLM 复盘编辑器 <em>+</em> Obsidian 知识归档器 <em>+</em> 微信发布适配器
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="shell">AI Daily Summary · 本地自动化系统说明 · 单文件离线页面</div>
+  </footer>
+
+  <script>
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const revealItems = document.querySelectorAll(".reveal");
+
+    if (reducedMotion || !("IntersectionObserver" in window)) {
+      revealItems.forEach((item) => item.classList.add("visible"));
+    } else {
+      const revealObserver = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("visible");
+            revealObserver.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.12 });
+      revealItems.forEach((item) => revealObserver.observe(item));
+    }
+
+    const sections = [...document.querySelectorAll("main section")];
+    const links = [...document.querySelectorAll(".nav-link")];
+    const sectionObserver = new IntersectionObserver((entries) => {
+      const visible = entries
+        .filter((entry) => entry.isIntersecting)
+        .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+
+      if (!visible) return;
+      links.forEach((link) => {
+        link.classList.toggle("active", link.getAttribute("href") === `#${visible.target.id}`);
+      });
+    }, { rootMargin: "-20% 0px -65% 0px", threshold: [0, 0.2, 0.6] });
+
+    sections.forEach((section) => sectionObserver.observe(section));
+  </script>
+</body>
+</html>
